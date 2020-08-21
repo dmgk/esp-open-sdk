@@ -1,0 +1,13 @@
+diff --git a/scripts/build/internals.sh b/scripts/build/internals.sh
+index a2351acd..780631a9 100644
+--- a/scripts/build/internals.sh
++++ b/scripts/build/internals.sh
+@@ -17,7 +17,7 @@ do_finish() {
+                 strip_args=""
+                 ;;
+             *)
+-                strip_args="--strip-all -v"
++                strip_args="--strip-all"
+                 ;;
+         esac
+         CT_DoLog INFO "Stripping all toolchain executables"

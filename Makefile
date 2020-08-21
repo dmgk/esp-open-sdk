@@ -17,7 +17,7 @@ VENDOR_SDK = 2.1.0-18-g61248df
 
 
 TOP = $(PWD)
-SHELL = /bin/bash
+SHELL = /usr/local/bin/bash
 PATCH = patch -b -N
 UNZIP = unzip -q -o
 VENDOR_SDK_ZIP = $(VENDOR_SDK_ZIP_$(VENDOR_SDK))
@@ -98,8 +98,8 @@ ifeq ($(STANDALONE),y)
 	@echo "Installing vendor SDK libs into toolchain sysroot"
 	@cp -Rf sdk/lib/* $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/
 	@echo "Installing vendor SDK linker scripts into toolchain sysroot"
-	@sed -e 's/\r//' sdk/ld/eagle.app.v6.ld | sed -e s@../ld/@@ >$(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/eagle.app.v6.ld
-	@sed -e 's/\r//' sdk/ld/eagle.rom.addr.v6.ld >$(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/eagle.rom.addr.v6.ld
+	@gsed -e 's/\r//' sdk/ld/eagle.app.v6.ld | gsed -e s@../ld/@@ >$(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/eagle.app.v6.ld
+	@gsed -e 's/\r//' sdk/ld/eagle.rom.addr.v6.ld >$(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/eagle.rom.addr.v6.ld
 endif
 
 clean: clean-sdk
@@ -127,14 +127,16 @@ esptool: toolchain
 toolchain $(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/lib/libc.a: crosstool-NG/.built
 
 crosstool-NG/.built: crosstool-NG/ct-ng
+	cp -f patches/01-gdb.patch crosstool-NG/patches/gdb/7.10/
 	cp -f 1000-mforce-l32.patch crosstool-NG/local-patches/gcc/4.8.5/
-	$(MAKE) -C crosstool-NG -f ../Makefile _toolchain
+	( cd ./crosstool-NG && git checkout scripts/build/internals.sh && patch -p1 < ../patches/internals.patch )
+	$(MAKE) CC=gcc48 CXX=g++48 -C crosstool-NG -f ../Makefile _toolchain
 	touch $@
 
 _toolchain:
 	./ct-ng xtensa-lx106-elf
-	sed -r -i.org s%CT_PREFIX_DIR=.*%CT_PREFIX_DIR="$(TOOLCHAIN)"% .config
-	sed -r -i s%CT_INSTALL_DIR_RO=y%"#"CT_INSTALL_DIR_RO=y% .config
+	gsed -r -i.org s%CT_PREFIX_DIR=.*%CT_PREFIX_DIR="$(TOOLCHAIN)"% .config
+	gsed -r -i s%CT_INSTALL_DIR_RO=y%"#"CT_INSTALL_DIR_RO=y% .config
 	cat ../crosstool-config-overrides >> .config
 	./ct-ng build
 
@@ -146,7 +148,9 @@ crosstool-NG/ct-ng: crosstool-NG/bootstrap
 
 _ct-ng:
 	./bootstrap
-	./configure --prefix=`pwd`
+	./configure --prefix=`pwd` \
+		--with-awk=/usr/local/bin/gawk \
+		--with-bash=/usr/local/bin/bash
 	$(MAKE) MAKELEVEL=0
 	$(MAKE) install MAKELEVEL=0
 
@@ -168,7 +172,7 @@ $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/libhal.a: $(TOOLCHAIN)/bin/xtensa-
 
 _libhal:
 	autoreconf -i
-	PATH="$(TOOLCHAIN)/bin:$(PATH)" ./configure --host=xtensa-lx106-elf --prefix=$(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr
+	PATH="$(TOOLCHAIN)/bin:$(PATH)" CC=$(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc CXX=$(TOOLCHAIN)/bin/xtensa-lx106-elf-g++ ./configure --host=xtensa-lx106-elf --prefix=$(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr
 	PATH="$(TOOLCHAIN)/bin:$(PATH)" $(MAKE)
 	PATH="$(TOOLCHAIN)/bin:$(PATH)" $(MAKE) install
 
